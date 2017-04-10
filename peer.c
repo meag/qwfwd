@@ -262,7 +262,7 @@ static void FWD_network_update(void)
 			// forward data to the server/proxy
 			if (p->ps >= ps_connected)
 			{
-				cnt = 1; // one packet by default
+				cnt = max(1, p->c2srepeat); // one packet by default
 
 				// check for "drop" aka client disconnect,
 				// first 10 bytes for NON connectionless packet is netchan related shit in QW
@@ -272,7 +272,7 @@ static void FWD_network_update(void)
 					{
 //						Sys_Printf("peer drop detected\n");
 						p->ps = ps_drop; // drop peer ASAP
-						cnt = 3; // send few packets due to possibile packet lost
+						cnt = max(3, cnt); // send few packets due to possibile packet lost
 					}
 				}
 
@@ -292,6 +292,8 @@ static void FWD_network_update(void)
 			// yeah, we have packet, read it then
 			for (;;)
 			{
+				int cnt;
+
 				if (!NET_GetPacket(p->s, &net_message))
 					break;
 
@@ -312,12 +314,16 @@ static void FWD_network_update(void)
 					if (!CL_ConnectionlessPacket(p))
 						continue; // seems we do not need forward it
 
-					NET_SendPacket(net_socket, net_message.cursize, net_message.data, &p->from);
+					for (cnt = max(1, p->s2crepeat); cnt > 0; cnt--)
+						NET_SendPacket(net_socket, net_message.cursize, net_message.data, &p->from);
 					continue;
 				}
 
 				if (p->ps >= ps_connected)
-					NET_SendPacket(net_socket, net_message.cursize, net_message.data, &p->from);
+				{
+					for (cnt = max(1, p->s2crepeat); cnt > 0; cnt--)
+						NET_SendPacket(net_socket, net_message.cursize, net_message.data, &p->from);
+				}
 
 // qqshka: commented out
 //				time(&p->last);

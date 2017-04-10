@@ -181,13 +181,31 @@ static qbool CheckUserinfo( char *userinfobuf, unsigned int bufsize, char *useri
 	return true;
 }
 
+static void CheckChaining(char* value, char* userinfo, int length_userinfo, const char* key_name)
+{
+	char* at;
+
+	// check chaining
+	if ((at = strchr(value, '@')) && at[1])
+	{
+		Info_SetValueForKeyEx(userinfo, key_name, at+1, length_userinfo, false);
+		at[0] = 0; // truncate chain
+	}
+	else
+	{
+		Info_RemoveKey(userinfo, key_name);
+	}
+}
+
 static void SVC_DirectConnect (void)
 {
 	unsigned int i = FindChallengeForAddr(&net_from);
 
 	char userinfo[MAX_INFO_STRING], prx[MAX_INFO_KEY * 4 /* we allow huge size for prx */], *at;
+	char c2s[MAX_INFO_KEY], s2c[MAX_INFO_KEY];
 	peer_t *p = NULL;
 	int qport, port, challenge;
+	int c2srepeat = 1, s2crepeat = 1;
 	protocol_t proto;
 
 	if ( i >= MAX_CHALLENGES )
@@ -258,16 +276,25 @@ static void SVC_DirectConnect (void)
 		return; // no proxy set
 	}
 
-	// check chaining
-	if ((at = strchr(prx, '@')) && at[1])
+	// check c2s repeat request
+	Info_ValueForKey(userinfo, QWFWD_C2SR_KEY, c2s, sizeof(c2s));
+	if (c2s[0])
 	{
-		Info_SetValueForKeyEx(userinfo, QWFWD_PRX_KEY, at+1, sizeof(userinfo), false);
-		at[0] = 0; // truncate proxy chains
+		CheckChaining(c2s, userinfo, sizeof(userinfo), QWFWD_C2SR_KEY);
+
+		c2srepeat = (int)bound(1, atoi(c2s), c2srepeatlimit->value);
 	}
-	else
+
+	// check s2c repeat request
+	Info_ValueForKey(userinfo, QWFWD_S2CR_KEY, s2c, sizeof(s2c));
+	if (s2c[0])
 	{
-		Info_RemoveKey(userinfo, QWFWD_PRX_KEY);
+		CheckChaining(s2c, userinfo, sizeof(userinfo), QWFWD_S2CR_KEY);
+
+		s2crepeat = (int)bound(1, atoi(s2c), s2crepeatlimit->value);
 	}
+
+	CheckChaining(prx, userinfo, sizeof(userinfo), QWFWD_PRX_KEY);
 
 	// guess port
 	if ((at = strchr(prx, ':')))
@@ -301,6 +328,9 @@ static void SVC_DirectConnect (void)
 		Sys_DPrintf("peer %s:%d was not added\n", inet_ntoa(net_from.sin_addr), (int)ntohs(net_from.sin_port));
 		return;
 	}
+
+	p->c2srepeat = c2srepeat;
+	p->s2crepeat = s2crepeat;
 
 	if ( proto == pr_qw )
 	{

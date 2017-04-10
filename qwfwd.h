@@ -5,6 +5,19 @@
 #undef  _WIN32 // qqshka: this way it compiled on my CYGWIN
 #endif
 
+#ifdef _WIN32
+
+// meag: windows now seems to define E* codes
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#define _CRT_NO_POSIX_ERROR_CODES
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#ifdef EWOULDBLOCK
+#error Already defined
+#endif
+#endif
+
+#endif // _WIN32
+
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -123,6 +136,8 @@ extern "C" {
 #define QWFWD_DIR "qwfwd"
 
 #define QWFWD_PRX_KEY "prx"
+#define QWFWD_C2SR_KEY "c2s"
+#define QWFWD_S2CR_KEY "s2c"
 
 #define	MAX_INFO_STRING		1024
 #define MAX_INFO_KEY 		64
@@ -143,20 +158,22 @@ typedef enum
 
 typedef struct peer
 {
-	time_t last;					// socket timeout helper
-	double q3_disconnect_check;		// helper for q3 to guess disconnect
-	time_t connect;					// connect helper
-	int challenge;					// challenge num
-	char userinfo[MAX_INFO_STRING]; // userinfo
-	char name[MAX_INFO_KEY];		// name, extracted from userinfo
-	int userid;						// unique per proxy userid
-	int qport;						// qport
-	struct sockaddr_in from;		// client addr
-	struct sockaddr_in to;			// remote addr
-	int s;							// socket, used for connection to remote host
-	peer_state_t ps;				// peer state
-	protocol_t	proto;				// which protocol we use
-	struct peer *next;				// next peer in linked list
+	time_t last;                     // socket timeout helper
+	double q3_disconnect_check;      // helper for q3 to guess disconnect
+	time_t connect;                  // connect helper
+	int challenge;                   // challenge num
+	char userinfo[MAX_INFO_STRING];  // userinfo
+	char name[MAX_INFO_KEY];         // name, extracted from userinfo
+	int userid;                      // unique per proxy userid
+	int qport;                       // qport
+	struct sockaddr_in from;         // client addr
+	struct sockaddr_in to;           // remote addr
+	int s;                           // socket, used for connection to remote host
+	peer_state_t ps;                 // peer state
+	protocol_t proto;                // which protocol we use
+	struct peer *next;               // next peer in linked list
+	int c2srepeat;                   // number of times to send packet from client > server
+	int s2crepeat;                   // number of times to send packet from server > client
 } peer_t;
 
 // used for passing params for thread
@@ -222,6 +239,7 @@ typedef struct proxy_static_s
 extern proxy_static_t ps;
 
 extern cvar_t *developer, *maxclients, *hostname;
+extern cvar_t *s2crepeatlimit, *c2srepeatlimit;
 
 //
 // token.c

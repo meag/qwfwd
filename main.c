@@ -15,6 +15,8 @@ cvar_t *developer;
 cvar_t *version;
 cvar_t *hostname;
 cvar_t *maxclients;
+cvar_t *s2crepeatlimit;
+cvar_t *c2srepeatlimit;
 
 proxy_static_t ps;
 
@@ -116,6 +118,8 @@ DWORD WINAPI FWD_proc(void *lpParameter)
 	version			= Cvar_Get("*version",		QWFWD_VERSION, CVAR_READONLY | CVAR_SERVERINFO);
 	hostname		= Cvar_Get("hostname",		"unnamed qwfwd", CVAR_SERVERINFO);
 	maxclients		= Cvar_Get("maxclients",	"128", CVAR_SERVERINFO);
+	s2crepeatlimit  = Cvar_Get("s2climit",      "1", CVAR_SERVERINFO);
+	c2srepeatlimit  = Cvar_Get("c2slimit",      "1", CVAR_SERVERINFO);
 
 	// register basic commands
 	Cmd_AddCommand("quit", Cmd_Quit_f);

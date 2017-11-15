@@ -193,7 +193,7 @@ static qbool CheckChaining(char* value, char* userinfo, int length_userinfo, con
 		Info_SetValueForKeyEx(userinfo, key_name, at+1, length_userinfo, false);
 		at[0] = 0; // truncate chain
 
-		return strchr(at + 1, '@') != NULL;
+		return true;
 	}
 	else
 	{

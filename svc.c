@@ -181,7 +181,9 @@ static qbool CheckUserinfo( char *userinfobuf, unsigned int bufsize, char *useri
 	return true;
 }
 
-static void CheckChaining(char* value, char* userinfo, int length_userinfo, const char* key_name)
+// Moves infokey value along a chain (separated by @)
+// Returns true if more data in the chain, false if the current value is the last
+static qbool CheckChaining(char* value, char* userinfo, int length_userinfo, const char* key_name)
 {
 	char* at;
 
@@ -190,10 +192,14 @@ static void CheckChaining(char* value, char* userinfo, int length_userinfo, cons
 	{
 		Info_SetValueForKeyEx(userinfo, key_name, at+1, length_userinfo, false);
 		at[0] = 0; // truncate chain
+
+		return strchr(at + 1, '@') != NULL;
 	}
 	else
 	{
 		Info_RemoveKey(userinfo, key_name);
+
+		return false;
 	}
 }
 
@@ -276,25 +282,25 @@ static void SVC_DirectConnect (void)
 		return; // no proxy set
 	}
 
-	// check c2s repeat request
+	// check c2s repeat request: this is read by the first proxy and always removed after
 	Info_ValueForKey(userinfo, QWFWD_C2SR_KEY, c2s, sizeof(c2s));
 	if (c2s[0])
 	{
-		CheckChaining(c2s, userinfo, sizeof(userinfo), QWFWD_C2SR_KEY);
+		Info_RemoveKey(userinfo, QWFWD_C2SR_KEY);
 
 		c2srepeat = (int)bound(1, atoi(c2s), c2srepeatlimit->value);
 	}
 
-	// check s2c repeat request
-	Info_ValueForKey(userinfo, QWFWD_S2CR_KEY, s2c, sizeof(s2c));
-	if (s2c[0])
-	{
-		CheckChaining(s2c, userinfo, sizeof(userinfo), QWFWD_S2CR_KEY);
+	if (!CheckChaining(prx, userinfo, sizeof(userinfo), QWFWD_PRX_KEY)) {
+		// check s2c repeat request: this is only processed by the last proxy before address
+		Info_ValueForKey(userinfo, QWFWD_S2CR_KEY, s2c, sizeof(s2c));
+		if (s2c[0])
+		{
+			Info_RemoveKey(userinfo, QWFWD_S2CR_KEY);
 
-		s2crepeat = (int)bound(1, atoi(s2c), s2crepeatlimit->value);
+			s2crepeat = (int)bound(1, atoi(s2c), s2crepeatlimit->value);
+		}
 	}
-
-	CheckChaining(prx, userinfo, sizeof(userinfo), QWFWD_PRX_KEY);
 
 	// guess port
 	if ((at = strchr(prx, ':')))
